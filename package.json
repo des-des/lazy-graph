@@ -1,0 +1,20 @@
+{
+  "name": "lazy-graph",
+  "description": "lazy representation of graphql schema",
+  "author": "Eoin McCarthy",
+  "version": "0.1.0",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "test": "ava"
+  },
+  "repository": "des-des/lazy-graph",
+  "keywords": [],
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "ava": "*"
+  }
+}
