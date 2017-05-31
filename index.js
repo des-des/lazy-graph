@@ -1,9 +1,16 @@
+const leaf = require('./src/leaf.js')
+const node = require('./src/node.js')
+const seq = require('./src/seq.js')
+
 const getGraph = schema => {
+  const self = {}
+
   const { types } = schema
+  const queries = []
 
   const fetchTypeSchema = name =>
     types.filter(typeSchema => typeSchema.name === name)[0]
-  const queries = []
+  self.fetchTypeSchema = fetchTypeSchema
 
   const objToQuery = (o) => {
     const keys = Object.keys(o)
@@ -20,7 +27,10 @@ const getGraph = schema => {
       let nextTip
 
       sections.forEach((section, i) => {
+        if (section === '$') return
+
         const target = tip[section]
+
         if (target) {
           nextTip = target
           tip = nextTip
@@ -34,82 +44,27 @@ const getGraph = schema => {
     return objToQuery(out)
   }
 
-  const graph = (schema, path = [], getterPath = []) => {
+  const getQuery = () => buildQueryFromPaths(queries).trim()
+  self.getQuery = getQuery
+
+  const tree = (schema, path = []) => {
     const { kind } = schema
     queries.push(path)
 
-    if (kind === 'OBJECT') return node(schema, path, getterPath)
+    if (kind === 'OBJECT') return node(self, schema.name, path)
 
-    if (kind === 'SCALAR') return leaf(schema, path, getterPath)
+    if (kind === 'SCALAR') return leaf(path)
 
-    if (kind === 'LIST') return seq(schema, path, getterPath)
+    if (kind === 'LIST') { return seq(tree(schema.ofType, path.concat('$')), path) }
 
     throw new Error('could not create node for kind ', kind)
   }
+  self.tree = tree
 
-  const node = (schema, path, getterPath) => {
-    const self = {}
+  const graph = tree(schema.types[0])
+  self.graph = graph
 
-    fetchTypeSchema(schema.name).fields.forEach(field => {
-      const { name, type } = field
-      Object.defineProperty(
-        self,
-        name,
-        {
-          get: () => graph(type, path.concat(name), getterPath.concat(name)),
-          enumerable: true
-        }
-      )
-    })
-
-    const resolve = data => getIn(getterPath, data)
-    self.$resolve = resolve
-
-    return self
-  }
-
-  const getIn = ([key, ...path], o) => {
-    const next = o[key]
-    if (next === undefined || typeof next !== 'object') return next
-
-    if (path.length === 0) return next
-
-    return getIn(path, next)
-  }
-
-  const leaf = (schema, path, getterPath) => {
-    const transforms = []
-    const self = {}
-
-    const applyTransform = (result, transform) => transform(result)
-    const resolve = data =>
-      transforms.reduce(applyTransform, getIn(getterPath, data))
-    self.$resolve = resolve
-
-    const ap = f => { transforms.push(f); return self }
-    self.$ap = ap
-
-    return self
-  }
-
-  const seq = (schema, path, getterPath) => {
-    let mapped = graph(schema.ofType, path, getterPath)
-    const self = {}
-
-    const map = f => { mapped = f(mapped); return self }
-    self.$map = map
-
-    const resolve = data => getIn(getterPath, data)
-      .map(data => mapped.$resolve(data))
-    self.$resolve = resolve
-
-    return self
-  }
-
-  return {
-    graph: graph(schema.types[0]),
-    getQuery: () => buildQueryFromPaths(queries).trim()
-  }
+  return self
 }
 
 module.exports = getGraph

@@ -10,7 +10,7 @@
   "nyc": {},
   "scripts": {
     "test": "node test.js",
-    "dev": "chokidar './*.js' -c 'node test.js | tap-notify | tap-spec'",
+    "dev": "chokidar './*.js' './src/*.js' './test/*.js' -c 'node test.js | tap-notify | tap-spec'",
     "lint": "standard",
     "cover": "nyc node ./test.js"
   },
